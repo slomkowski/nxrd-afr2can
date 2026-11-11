@@ -1,2 +1,3 @@
 afr_logger
 *.csv
+__pycache__/
