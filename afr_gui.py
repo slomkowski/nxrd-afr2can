@@ -349,8 +349,9 @@ class MainWindow(QtWidgets.QMainWindow):
         if self.running:
             return
         if not self.demo and not os.access(self.binary, os.X_OK):
-            self.statusBar().showMessage(
-                f"{self.binary} not found or not executable - build it first with `make`.")
+            msg = f"{self.binary} not found or not executable - build it first with `make`."
+            self.statusBar().showMessage(msg)
+            self._show_error("afr_logger not found", msg)
             return
         self.clear_data()
         self.user_stop = False
@@ -423,12 +424,26 @@ class MainWindow(QtWidgets.QMainWindow):
     def _on_finished(self, code: int, _status) -> None:
         if self.user_stop or code == 0:
             self._finish("Stopped")
-        else:
-            self._finish(f"afr_logger exited with code {code}: {self.last_err or 'no message'}")
+            return
+        detail = self.last_err or "no message"
+        self._finish(f"afr_logger exited with code {code}: {detail}")
+        text = f"afr_logger exited with code {code}:\n\n{detail}"
+        if "BUSY" in detail or "busy" in detail:
+            text += ("\n\nOnly one program can open the cable at a time. Close any running "
+                     "afr_logger, wideband_probe.sh / wideband_flash.py or other afr_gui window, "
+                     "then press Start.")
+        elif "PassThruOpen" in detail:
+            text += "\n\nCheck that the OpenPort cable is plugged in (without the microSD card)."
+        self._show_error("Cannot read the wideband", text)
 
     def _on_proc_error(self, err) -> None:
         if err == QtCore.QProcess.ProcessError.FailedToStart:
             self._finish(f"Could not start {self.binary}")
+            self._show_error("afr_logger failed to start",
+                             f"Could not start {self.binary}:\n\n{self.proc.errorString()}")
+
+    def _show_error(self, title: str, text: str) -> None:
+        QtWidgets.QMessageBox.critical(self, title, text)
 
     # ---- data ----
 
